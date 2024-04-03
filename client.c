@@ -8,14 +8,7 @@
 #define SERVER_IP "127.0.0.1" // Replace with the IP address of the server
 #define SERVER_PORT 8080 // Replace with the port number the server is listening on
 
-int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        printf("Usage: %s <file_path>\n", argv[0]);
-        return 1;
-    }
-
-    char *file_path = argv[1];
-
+int pre_probe_tcp() {
     // Create a TCP socket
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -32,17 +25,19 @@ int main(int argc, char *argv[]) {
 
     // Connect to the server
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("connect");
-        close(sock);
-        return 1;
+        return -1;
     }
 
+    return sock;
+}
+
+int send_config(char* file_path, int sock) {
     // Open the file
     FILE *file = fopen(file_path, "rb");
     if (file == NULL) {
-        perror("fopen");
+        perror("Error opening config file");
         close(sock);
-        return 1;
+        return -1;
     }
 
     // Send the file to the server
@@ -50,18 +45,40 @@ int main(int argc, char *argv[]) {
     size_t bytes_read;
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
         if (send(sock, buffer, bytes_read, 0) < 0) {
-            perror("send");
+            perror("Error sending config file");
             fclose(file);
             close(sock);
-            return 1;
+            return -1;
         }
     }
 
-    // Close the file and socket
+    // Close the file
     fclose(file);
-    close(sock);
-
     printf("File sent successfully.\n");
+    return sock;
+}
 
+int main(int argc, char *argv[]) {
+    if (argc != 2) {
+        printf("Usage: %s <file_path>\n", argv[0]);
+        return -1;
+    }
+
+    // Create socket and connect to server
+    int sock = pre_probe_tcp();
+    if (sock < 0) {
+        perror("Error connecting to server");
+        return -1;
+    }
+
+    // Send config file to server
+    char *file_path = argv[1];
+    sock = send_config(file_path, sock);
+    if (sock < 0) {
+        perror("Unable to send config file");
+        return -1;
+    }
+
+    close(sock);
     return 0;
 }
