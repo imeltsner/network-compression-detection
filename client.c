@@ -8,7 +8,9 @@
 #define SERVER_IP "127.0.0.1" 
 #define SERVER_PORT 8080 
 
-int pre_probe_tcp() {
+// Creates a TCP socket and intializes connection
+// Returns socket file descriptor
+int connect_to_server() {
     // Create a TCP socket
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -31,6 +33,8 @@ int pre_probe_tcp() {
     return sock;
 }
 
+// Sends a file via TCP to the server
+// Returns socket file descriptor
 int send_config(char* file_path, int sock) {
     // Open the file
     FILE *file = fopen(file_path, "rb");
@@ -59,13 +63,14 @@ int send_config(char* file_path, int sock) {
 }
 
 int main(int argc, char *argv[]) {
+    // Arg error checking
     if (argc != 2) {
         printf("Usage: %s <file_path>\n", argv[0]);
         return -1;
     }
 
     // Create socket and connect to server
-    int sock = pre_probe_tcp();
+    int sock = connect_to_server();
     if (sock < 0) {
         perror("Error connecting to server");
         return -1;
