@@ -147,7 +147,7 @@ void print_config(ConfigData* config_data) {
     printf("TTL: %d\n", config_data->ttl);
 }
 
-// Extracts config info and stores it in struct
+// Extracts config info from cJSON object and stores it in ConfigData struct
 void extract_config(ConfigData* config_data, const cJSON* json_root) {
     strncpy(config_data->server_ip_addr, cJSON_GetObjectItem(json_root, "server_ip_addr")->valuestring, sizeof(config_data->server_ip_addr));
     config_data->udp_source_port = cJSON_GetObjectItem(json_root, "udp_source_port")->valueint;
@@ -163,29 +163,21 @@ void extract_config(ConfigData* config_data, const cJSON* json_root) {
     printf("JSON file received and parsed successfully.\n");
 }
 
-int main(int argc, char *argv[]) {
-    // Arg error checking
-    if (argc != 2) {
-        printf("Usage: %s <port>\n", argv[0]);
-        return -1;
-    }
-
-    // Create socket and listen for connections
-    int server_sock = bind_and_listen();
-    if (server_sock < 0) {
-        perror("Unable to create socket");
-        return -1;
-    }
-
+// Accepts tcp connections until config file data is successfully extracted
+ConfigData* get_config_data(int server_sock) {
     // Allocate ConfigData struct
     ConfigData* config_data = malloc(sizeof(ConfigData));
+    if (config_data == NULL) {
+        perror("Error allocating ConfigData");
+        return NULL;
+    }
 
     while (1) {
         // Accept connection
         int client_sock = accept_connection(server_sock);
         if (client_sock < 0) {
             perror("Unable to accept connection");
-            return -1;
+            return NULL;
         }
 
         // Read config file from client
@@ -203,13 +195,39 @@ int main(int argc, char *argv[]) {
             close(client_sock);
             continue;
         }
+
         extract_config(config_data, json_root);
     
         // Clean up
         cJSON_Delete(json_root);
         fclose(file);
         close(client_sock);
-        break;
+
+        return config_data;
+    }
+}
+
+int main(int argc, char *argv[]) {
+    // Arg error checking
+    if (argc != 2) {
+        printf("Usage: %s <port>\n", argv[0]);
+        return -1;
+    }
+
+    // Create socket and listen for connections
+    int server_sock = bind_and_listen();
+    if (server_sock < 0) {
+        perror("Unable to create socket");
+        return -1;
+    }
+
+    // Get config data from client
+    ConfigData* config_data = get_config_data(server_sock);
+    if (config_data == NULL) {
+        perror("Unable to get config data");
+        free(config_data);
+        close(server_sock);
+        return -1;
     }
 
     print_config(config_data);
