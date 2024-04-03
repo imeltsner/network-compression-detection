@@ -5,8 +5,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
-#define SERVER_IP "127.0.0.1" // Replace with the IP address of the server
-#define SERVER_PORT 8080 // Replace with the port number the server is listening on
+#define SERVER_IP "127.0.0.1" 
+#define SERVER_PORT 8080 
 
 int pre_probe_tcp() {
     // Create a TCP socket
@@ -79,6 +79,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    // Close socket and exit
     close(sock);
     return 0;
 }
