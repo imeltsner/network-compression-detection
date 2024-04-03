@@ -45,12 +45,12 @@ int bind_and_listen(int port) {
         return -1;
     }
 
-    printf("Server listening on port %d...\n", port);
+    printf("Server listening for TCP connections on port %d...\n", port);
     return server_sock;
 }
 
 // Accepts a client connection and returns client file descriptor
-int accept_connection(int server_sock) {
+int accept_tcp_connection(int server_sock) {
     // Accept a client connection
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
@@ -101,7 +101,7 @@ ConfigData* get_config_data(int server_sock) {
 
     while (1) {
         // Accept connection
-        int client_sock = accept_connection(server_sock);
+        int client_sock = accept_tcp_connection(server_sock);
         if (client_sock < 0) {
             perror("Unable to accept connection");
             return NULL;
@@ -133,6 +133,8 @@ ConfigData* get_config_data(int server_sock) {
         return config_data;
     }
 }
+
+
 
 int main(int argc, char *argv[]) {
     // Arg error checking
