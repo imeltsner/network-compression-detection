@@ -97,6 +97,36 @@ ConfigData* tcp_pre_probe(char* file_path) {
     return config_data;
 }
 
+// Create a udp socket
+int send_udp_packets(ConfigData* config_data) {
+    // Create a UDP socket
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket");
+        return -1;
+    }
+
+    // Set up the server address
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = inet_addr(config_data->server_ip_addr);
+    server_addr.sin_port = htons(config_data->udp_source_port);
+
+    // Send low entropy payload
+    char payload[config_data->udp_payload_size];
+    bzero(payload, sizeof(payload));
+
+    for (int i = 0; i < config_data->num_udp_packets; i++) {
+        ssize_t bytes_sent = sendto(sock, payload, strlen(payload), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        if (bytes_sent < 0) {
+            perror("Error sending low entropy packets");
+            close(sock);
+            return -1;
+        }
+    }
+}
+
 int main(int argc, char *argv[]) {
     // Arg error checking
     if (argc != 2) {
