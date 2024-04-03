@@ -14,6 +14,7 @@ int connect_to_server(ConfigData* config_data) {
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
         perror("Error creating socket");
+        free(config_data);
         return -1;
     }
 
@@ -26,6 +27,7 @@ int connect_to_server(ConfigData* config_data) {
 
     // Connect to the server
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        free(config_data);
         return -1;
     }
 
@@ -54,6 +56,47 @@ int send_config(FILE* file, int sock) {
     return sock;
 }
 
+ConfigData* tcp_pre_probe(char* file_path) {
+    // Open config file
+    FILE *file = fopen(file_path, "rb");
+    if (file == NULL) {
+        perror("Error opening config file");
+        return NULL;
+    }
+
+    // Parse and extract config data
+    ConfigData* config_data = malloc(sizeof(config_data));
+    if (config_data == NULL) {
+        perror("Error allocating config data");
+        return NULL;
+    }
+    cJSON* json_root = parse_config(file);
+    if (json_root == NULL) {
+        perror("Unnable to parse config file");
+        free(config_data);
+        return NULL;
+    }
+    extract_config(config_data, json_root);
+
+    // Create socket and connect to server
+    int sock = connect_to_server(config_data);
+    if (sock < 0) {
+        free(config_data);
+        perror("Error connecting to server");
+        return NULL;
+    }
+
+    // Send config file to server
+    sock = send_config(file, sock);
+    if (sock < 0) {
+        perror("Unable to send config file");
+        return NULL;
+    }
+
+    close(sock);
+    return config_data;
+}
+
 int main(int argc, char *argv[]) {
     // Arg error checking
     if (argc != 2) {
@@ -61,41 +104,15 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // Open the file
+    // Send config info to server and parse config file info
     char *file_path = argv[1];
-    FILE *file = fopen(file_path, "rb");
-    if (file == NULL) {
-        perror("Error opening config file");
-        return -1;
-    }
-
-    // Parse and extract config data
-    ConfigData* config_data = malloc(sizeof(config_data));
+    ConfigData* config_data = tcp_pre_probe(file_path);
     if (config_data == NULL) {
-        perror("Error allocating config data");
-        return -1;
-    }
-    cJSON* json_root = parse_config(file);
-    extract_config(config_data, json_root);
-
-
-    // Create socket and connect to server
-    int sock = connect_to_server(config_data);
-    if (sock < 0) {
-        perror("Error connecting to server");
-        close(sock);
+        perror("Pre probe failed");
+        free(config_data);
         return -1;
     }
 
-    // Send config file to server
-    sock = send_config(file, sock);
-    if (sock < 0) {
-        perror("Unable to send config file");
-        close(sock);
-        return -1;
-    }
-
-    // Close socket and exit
-    close(sock);
+    free(config_data);
     return 0;
 }
