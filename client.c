@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include "cJSON.h"
 #include "config.h"
 
@@ -97,12 +98,51 @@ ConfigData* tcp_pre_probe(char* file_path) {
     return config_data;
 }
 
+int get_random_bytes(char buffer[]) {
+    FILE* fp = fopen("/dev/urandom", O_RDONLY);
+    if (fp < 0) {
+        perror("Error opening urandom");
+        return -1;
+    }
+
+    ssize_t result = fread(buffer, 1, strlen(buffer), fp);
+    if (result < 0) {
+        perror("Error reading random bytes");
+        fclose(fp);
+        return -1;
+    }
+
+    fclose(fp);
+    return 0;
+}
+
 // Create a udp socket
 int send_udp_packets(ConfigData* config_data) {
     // Create a UDP socket
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
-        perror("socket");
+        perror("Error creating udp socket");
+        return -1;
+    }
+
+    // Set the source port
+    struct sockaddr_in source_addr;
+    memset(&source_addr, 0, sizeof(source_addr));
+    source_addr.sin_family = AF_INET;
+    source_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    source_addr.sin_port = htons(config_data->udp_source_port);
+
+    if (bind(sock, (struct sockaddr *)&source_addr, sizeof(source_addr)) < 0) {
+        perror("Error binding udp socket");
+        close(sock);
+        return -1;
+    }
+
+    // Set DF flag
+    int val = 1;
+    if (setsockopt(sock, IPPROTO_IP, IP_DONTFRAG, &val, sizeof(val)) < 0) {
+        perror("Error setting udp socket options");
+        close(sock);
         return -1;
     }
 
@@ -111,20 +151,53 @@ int send_udp_packets(ConfigData* config_data) {
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = inet_addr(config_data->server_ip_addr);
-    server_addr.sin_port = htons(config_data->udp_source_port);
+    server_addr.sin_port = htons(config_data->udp_destination_port);
 
-    // Send low entropy payload
+    // Configure payload
     char payload[config_data->udp_payload_size];
-    bzero(payload, sizeof(payload));
+    memset(payload, 0, sizeof(payload));
 
+    // Send low entropy packets
+    int packet_id;
     for (int i = 0; i < config_data->num_udp_packets; i++) {
+        packet_id = i;
+        payload[0] = (packet_id >> 8) & 0xFF;
+        payload[1] = packet_id & 0xFF;
         ssize_t bytes_sent = sendto(sock, payload, strlen(payload), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         if (bytes_sent < 0) {
-            perror("Error sending low entropy packets");
+            perror("Error sending packets");
             close(sock);
             return -1;
         }
     }
+    printf("Low entropy packets sent\n");
+
+    // sleep(config_data->inter_measurement_time);
+
+    // // Send high entropy packets
+    // memset(payload, 0, sizeof(payload));
+    // int bytes = get_random_bytes(payload);
+    // if (bytes == -1) {
+    //     perror("Unable to generate random bytes");
+    //     return -1;
+    // }
+    // printf("Payload: %s\n", payload);
+
+    // for (int i = 0; i < config_data->num_udp_packets; i++) {
+    //     packet_id = i;
+    //     payload[0] = (packet_id >> 8) & 0xFF;
+    //     payload[1] = packet_id & 0xFF;
+    //     ssize_t bytes_sent = sendto(sock, payload, strlen(payload), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    //     if (bytes_sent < 0) {
+    //         perror("Error sending packets");
+    //         close(sock);
+    //         return -1;
+    //     }
+    // }
+    // printf("High entropy packets sent\n");
+
+    close(sock);
+    return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -142,6 +215,15 @@ int main(int argc, char *argv[]) {
         free(config_data);
         return -1;
     }
+
+    // Send first packet train
+    int low_entropy_packets = send_udp_packets(config_data);
+    if (low_entropy_packets < 0) {
+        perror("Unable to send udp packet train");
+        free(config_data); 
+        return -1;
+    }
+    printf("Packets sent successfully");
 
     free(config_data);
     return 0;
