@@ -4,12 +4,13 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <time.h>
 #include "cJSON.h"
 #include "config.h"
 
 // Creates a TCP socket, binds to a port, and listens for incoming connections
 // Returns server socket file descriptor
-int bind_and_listen(int port) {
+int create_tcp_socket(int port) {
     // Create a TCP socket
     int server_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (server_sock < 0) {
@@ -134,7 +135,74 @@ ConfigData* get_config_data(int server_sock) {
     }
 }
 
+// Creates a udp socket and binds to a port
+// Return created udp socket
+int create_udp_socket(ConfigData* config_data) {
+    // Create a UDP socket
+    int server_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (server_sock < 0) {
+        perror("Error creating udp socket");
+        return -1;
+    }
 
+    // Set up the server address
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_port = htons(config_data->udp_destination_port);
+
+    // Bind the socket to the server address
+    if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Error binding udp socket");
+        close(server_sock);
+        return -1;
+    }
+
+    printf("Server listening on port %d...\n", config_data->udp_destination_port);
+    return server_sock;
+}
+
+double receive_packet_train(int server_sock, ConfigData* config_data) {
+    char buffer[config_data->udp_payload_size];
+    bzero(buffer, sizeof(buffer));
+
+    clock_t start_low_entropy = clock();
+    for (int i = 0; i < config_data->num_udp_packets; i++) {
+        // Receive the UDP packet
+        struct sockaddr_in client_addr;
+        socklen_t client_addr_len = sizeof(client_addr);
+        ssize_t bytes_received = recvfrom(server_sock, buffer, config_data->udp_payload_size, 0, (struct sockaddr *)&client_addr, &client_addr_len);
+
+        if (bytes_received < 0) {
+            perror("Error receiving udp bytes");
+            return -1;
+        }
+    }
+    clock_t end_low_entropy = clock();
+    double total_low_entropy = (double)(end_low_entropy - start_low_entropy) / CLOCKS_PER_SEC;
+    printf("First packet train received in %f seconds\n", total_low_entropy);
+
+    // sleep(config_data->inter_measurement_time);
+
+    // clock_t start_high_entropy = clock();
+    // for (int i = 0; i < config_data->num_udp_packets; i++) {
+    //     // Receive the UDP packet
+    //     struct sockaddr_in client_addr;
+    //     socklen_t client_addr_len = sizeof(client_addr);
+    //     ssize_t bytes_received = recvfrom(server_sock, buffer, config_data->udp_payload_size, 0, (struct sockaddr *)&client_addr, &client_addr_len);
+
+    //     if (bytes_received < 0) {
+    //         perror("Error receiving udp bytes");
+    //         return -1;
+    //     }
+    // }
+    // clock_t end_high_entropy = clock();
+    // double total_high_entropy = (double)(end_high_entropy - start_high_entropy) / CLOCKS_PER_SEC;
+    // printf("Second packet train received in %f seconds\n", total_high_entropy);
+
+    return total_low_entropy;
+}
 
 int main(int argc, char *argv[]) {
     // Arg error checking
@@ -146,24 +214,28 @@ int main(int argc, char *argv[]) {
     int port = atoi(argv[1]);
 
     // Create socket and listen for connections
-    int server_sock = bind_and_listen(port);
-    if (server_sock < 0) {
+    int tcp_server_sock = create_tcp_socket(port);
+    if (tcp_server_sock < 0) {
         perror("Unable to create socket");
         return -1;
     }
 
     // Get config data from client
-    ConfigData* config_data = get_config_data(server_sock);
+    ConfigData* config_data = get_config_data(tcp_server_sock);
     if (config_data == NULL) {
         perror("Unable to get config data");
         free(config_data);
-        close(server_sock);
+        close(tcp_server_sock);
         return -1;
     }
+    close(tcp_server_sock);
 
-    print_config(config_data);
+    // Get first packet train
+    int udp_server_sock = create_udp_socket(config_data);
+    double time_difference = receive_packet_train(udp_server_sock, config_data);
+    printf("Time difference between packet trains: %f\n", time_difference);
+
     free(config_data);
-    close(server_sock);
 
     return 0;
 }
