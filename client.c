@@ -164,7 +164,6 @@ int send_udp_packets(ConfigData* config_data) {
         payload[0] = (packet_id >> 8) & 0xFF; // Most significant
         payload[1] = packet_id & 0xFF;        // Least significant
         ssize_t bytes_sent = sendto(sock, payload, sizeof(payload), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-        printf("Bytes sent: %zd\n", bytes_sent);
         if (bytes_sent < 0) {
             perror("Error sending packets");
             close(sock);
