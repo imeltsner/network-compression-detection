@@ -5,12 +5,14 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <netinet/ip.h>                
+#include <netinet/in.h>
 #include "cJSON.h"
 #include "config.h"
 
 // Creates a TCP socket and intializes connection
 // Returns socket file descriptor
-int connect_to_server(ConfigData* config_data) {
+int connect_to_server(ConfigData* config_data, int pre_probe) {
     // Create a TCP socket
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -24,7 +26,11 @@ int connect_to_server(ConfigData* config_data) {
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = inet_addr(config_data->server_ip_addr);
-    server_addr.sin_port = htons(config_data->tcp_pre_probe);
+    if (pre_probe) {
+        server_addr.sin_port = htons(config_data->tcp_pre_probe);
+    } else {
+        server_addr.sin_port = htons(config_data->tcp_post_probe);
+    }
 
     // Connect to the server
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
@@ -80,7 +86,7 @@ ConfigData* tcp_pre_probe(char* file_path) {
     extract_config(config_data, json_root);
 
     // Create socket and connect to server
-    int sock = connect_to_server(config_data);
+    int sock = connect_to_server(config_data, 1);
     if (sock < 0) {
         free(config_data);
         perror("Error connecting to server");
@@ -99,9 +105,9 @@ ConfigData* tcp_pre_probe(char* file_path) {
 }
 
 int get_random_bytes(char buffer[], ConfigData* config_data) {
-    FILE* fp = fopen("/dev/urandom", "rb");
+    FILE* fp = fopen("random_file", "rb");
     if (fp == NULL) {
-        perror("Error opening urandom");
+        perror("Error opening random_file");
         return -1;
     }
 
@@ -223,6 +229,13 @@ int main(int argc, char *argv[]) {
         return -1;
     }
     printf("Packets sent successfully");
+
+    // int sock = connect_to_server(config_data, 0);
+    // if (sock < 0) {
+    //     perror("Post probe failed");
+    //     close(sock);
+    //     return -1;
+    // }
 
     free(config_data);
     return 0;
