@@ -99,8 +99,8 @@ ConfigData* tcp_pre_probe(char* file_path) {
 }
 
 int get_random_bytes(char buffer[], ConfigData* config_data) {
-    FILE* fp = fopen("/dev/urandom", O_RDONLY);
-    if (fp < 0) {
+    FILE* fp = fopen("/dev/urandom", "rb");
+    if (fp == NULL) {
         perror("Error opening urandom");
         return -1;
     }
