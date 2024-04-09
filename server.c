@@ -237,7 +237,7 @@ double receive_packet_train(ConfigData* config_data) {
     double high_entropy_time = high_entropy_elapsed.tv_sec + 1e-6 * high_entropy_elapsed.tv_usec;
 
     close(server_sock);
-    return high_entropy_time - low_entropy_time;
+    return (high_entropy_time - low_entropy_time) * 1000;
 }
 
 int main(int argc, char *argv[]) {
@@ -268,7 +268,7 @@ int main(int argc, char *argv[]) {
 
     // Get packet trains
     double time_difference = receive_packet_train(config_data);
-    printf("Time difference between packet trains: %f\n", time_difference);
+    printf("Time difference between packet trains: %f milliseconds\n", time_difference);
 
     free(config_data);
 
