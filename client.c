@@ -105,15 +105,13 @@ int get_random_bytes(char buffer[], ConfigData* config_data) {
         return -1;
     }
 
-    char random[config_data->udp_payload_size];
-    ssize_t result = fread(buffer, sizeof(random), 1, fp);
+    ssize_t result = fread(buffer, 1, config_data->udp_payload_size, fp);
     if (result < 0) {
         perror("Error reading random bytes");
         fclose(fp);
         return -1;
     }
 
-    strncpy(buffer, random, config_data->udp_payload_size);
     fclose(fp);
     return 0;
 }
