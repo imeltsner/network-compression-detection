@@ -7,7 +7,6 @@
 // Parses JSON config file and returns cJSON object
 cJSON* parse_config(FILE* file) {
     // Get file size
-    rewind(file);
     char *json_string = NULL;
     size_t json_len;
     fseek(file, 0, SEEK_END);
@@ -27,7 +26,7 @@ cJSON* parse_config(FILE* file) {
     // Create cJSON object
     cJSON *json_root = cJSON_Parse(json_string);
     if (json_root == NULL) {
-        fprintf(stderr, "Error parsing JSON file.\n");
+        perror("Error parsing JSON file.\n");
         free(json_string);
         fclose(file);
         return NULL;

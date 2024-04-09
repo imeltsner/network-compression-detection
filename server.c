@@ -17,7 +17,7 @@ int create_tcp_socket(int port) {
     int server_sock = socket(AF_INET, SOCK_STREAM, 0);
     if (server_sock < 0) {
         perror("Error creating socket");
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     // Set up the server address
@@ -31,21 +31,22 @@ int create_tcp_socket(int port) {
     int optval = 1;
     if (setsockopt(server_sock, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
         perror("Errror reusing address");
-        return -1;
+        close(server_sock);
+        exit(EXIT_FAILURE);
     }
 
     // Bind the socket to the server address
     if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Error binding socket");
         close(server_sock);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     // Listen for incoming connections
     if (listen(server_sock, 5) < 0) {
         perror("Error listening for connections");
         close(server_sock);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     printf("Server listening for TCP connections on port %d...\n", port);
@@ -59,7 +60,8 @@ int accept_tcp_connection(int server_sock) {
     socklen_t client_addr_len = sizeof(client_addr);
     int client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_addr_len);
     if (client_sock < 0) {
-        return -1;
+        close(server_sock);
+        exit(EXIT_FAILURE);
     }
 
     printf("Client connected from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
@@ -72,7 +74,7 @@ FILE* read_config(int client_sock) {
     FILE *file = tmpfile();
     if (file == NULL) {
         perror("Error creating temp file");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     char buffer[1024];
@@ -81,13 +83,13 @@ FILE* read_config(int client_sock) {
         if (fwrite(buffer, 1, bytes_received, file) != bytes_received) {
             perror("Error receiving file bytes");
             fclose(file);
-            return NULL;
+            exit(EXIT_FAILURE);
         }
     }
 
     if (bytes_received < 0) {
         perror("Error: bytes received is negative");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     return file;
@@ -99,7 +101,8 @@ ConfigData* get_config_data(int server_sock) {
     ConfigData* config_data = malloc(sizeof(ConfigData));
     if (config_data == NULL) {
         perror("Error allocating ConfigData");
-        return NULL;
+        close(server_sock);
+        exit(EXIT_FAILURE);
     }
 
     while (1) {
@@ -107,23 +110,29 @@ ConfigData* get_config_data(int server_sock) {
         int client_sock = accept_tcp_connection(server_sock);
         if (client_sock < 0) {
             perror("Unable to accept connection");
-            return NULL;
+            close(server_sock);
+            free(config_data);
+            exit(EXIT_FAILURE);
         }
 
         // Read config file from client
         FILE* file = read_config(client_sock);
         if (file == NULL) {
             perror("Unable to read config file");
+            close(server_sock);
             close(client_sock);
-            continue;
+            free(config_data);
+            exit(EXIT_FAILURE);
         }
 
         // Parse the config file and extract data
         cJSON *json_root = parse_config(file);
         if (json_root == NULL) {
             perror("Unable to parse config file");
+            close(server_sock);
             close(client_sock);
-            continue;
+            free(config_data);
+            exit(EXIT_FAILURE);
         }
 
         extract_config(config_data, json_root);
@@ -132,7 +141,7 @@ ConfigData* get_config_data(int server_sock) {
         cJSON_Delete(json_root);
         fclose(file);
         close(client_sock);
-
+        close(server_sock);
         return config_data;
     }
 }
@@ -164,7 +173,8 @@ double receive_packet_train(ConfigData* config_data) {
     int server_sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (server_sock < 0) {
         perror("Error creating udp socket");
-        return -1;
+        free(config_data);
+        exit(EXIT_FAILURE);
     }
 
     // Set up the server address
@@ -179,7 +189,8 @@ double receive_packet_train(ConfigData* config_data) {
     if (bind(server_sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Error binding udp socket");
         close(server_sock);
-        return -1;
+        free(config_data);
+        exit(EXIT_FAILURE);
     }
 
     // Set timeout for socket
@@ -188,7 +199,9 @@ double receive_packet_train(ConfigData* config_data) {
     tv.tv_usec = 0;
     if (setsockopt(server_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
         perror("Unable to set timeout");
-        return -1;
+        close(server_sock);
+        free(config_data);
+        exit(EXIT_FAILURE);
     }
 
     // Initialize payload buffer
@@ -206,13 +219,15 @@ double receive_packet_train(ConfigData* config_data) {
             }
             else {
                 perror("Error receiving bytes");
-                return -1;
+                close(server_sock);
+                free(config_data);
+                exit(EXIT_FAILURE);
             }
         }
         gettimeofday(&low_entropy_end, NULL);
     }
     timeval_subtract(&low_entropy_elapsed, &low_entropy_end, &low_entropy_start);
-    printf("First packet train received in %ld.%06d seconds\n", low_entropy_elapsed.tv_sec, low_entropy_elapsed.tv_usec);
+    printf("First packet train received in %ld.%06ld seconds\n", low_entropy_elapsed.tv_sec, low_entropy_elapsed.tv_usec);
     double low_entropy_time = low_entropy_elapsed.tv_sec + 1e-6 * low_entropy_elapsed.tv_usec;
 
     sleep(config_data->inter_measurement_time);
@@ -227,13 +242,15 @@ double receive_packet_train(ConfigData* config_data) {
             }
             else {
                 perror("Error receiving bytes");
-                return -1;
+                close(server_sock);
+                free(config_data);
+                exit(EXIT_FAILURE);
             }
         }
         gettimeofday(&high_entropy_end, NULL);
     }
     timeval_subtract(&high_entropy_elapsed, &high_entropy_end, &high_entropy_start);
-    printf("Second packet train received in %ld.%06d seconds\n", high_entropy_elapsed.tv_sec, high_entropy_elapsed.tv_usec);
+    printf("Second packet train received in %ld.%06ld seconds\n", high_entropy_elapsed.tv_sec, high_entropy_elapsed.tv_usec);
     double high_entropy_time = high_entropy_elapsed.tv_sec + 1e-6 * high_entropy_elapsed.tv_usec;
 
     close(server_sock);
@@ -251,20 +268,9 @@ int main(int argc, char *argv[]) {
 
     // Create socket and listen for connections
     int tcp_server_sock = create_tcp_socket(port);
-    if (tcp_server_sock < 0) {
-        perror("Unable to create socket");
-        return -1;
-    }
 
     // Get config data from client
     ConfigData* config_data = get_config_data(tcp_server_sock);
-    if (config_data == NULL) {
-        perror("Unable to get config data");
-        free(config_data);
-        close(tcp_server_sock);
-        return -1;
-    }
-    close(tcp_server_sock);
 
     // Get packet trains
     double time_difference = receive_packet_train(config_data);

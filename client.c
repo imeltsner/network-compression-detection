@@ -18,7 +18,7 @@ int connect_to_server(ConfigData* config_data, int pre_probe) {
     if (sock < 0) {
         perror("Error creating socket");
         free(config_data);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     // Set up the server address
@@ -35,7 +35,7 @@ int connect_to_server(ConfigData* config_data, int pre_probe) {
     // Connect to the server
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         free(config_data);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     return sock;
@@ -53,7 +53,7 @@ int send_config(FILE* file, int sock) {
         if (send(sock, buffer, bytes_read, 0) < 0) {
             perror("Error sending config file");
             fclose(file);
-            return -1;
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -68,20 +68,20 @@ ConfigData* tcp_pre_probe(char* file_path) {
     FILE *file = fopen(file_path, "rb");
     if (file == NULL) {
         perror("Error opening config file");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     // Parse and extract config data
     ConfigData* config_data = malloc(sizeof(config_data));
     if (config_data == NULL) {
         perror("Error allocating config data");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
     cJSON* json_root = parse_config(file);
     if (json_root == NULL) {
         perror("Unnable to parse config file");
         free(config_data);
-        return NULL;
+        exit(EXIT_FAILURE);
     }
     extract_config(config_data, json_root);
 
@@ -90,45 +90,47 @@ ConfigData* tcp_pre_probe(char* file_path) {
     if (sock < 0) {
         free(config_data);
         perror("Error connecting to server");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     // Send config file to server
     sock = send_config(file, sock);
     if (sock < 0) {
         perror("Unable to send config file");
-        return NULL;
+        exit(EXIT_FAILURE);
     }
 
     close(sock);
     return config_data;
 }
 
-int get_random_bytes(char buffer[], ConfigData* config_data) {
+void get_random_bytes(char buffer[], ConfigData* config_data) {
     FILE* fp = fopen("random_file", "rb");
     if (fp == NULL) {
         perror("Error opening random_file");
-        return -1;
+        free(config_data);
+        exit(EXIT_FAILURE);
     }
 
     ssize_t result = fread(buffer, 1, config_data->udp_payload_size, fp);
     if (result < 0) {
         perror("Error reading random bytes");
         fclose(fp);
-        return -1;
+        free(config_data);
+        exit(EXIT_FAILURE);
     }
 
     fclose(fp);
-    return 0;
 }
 
 // Create a udp socket
-int send_udp_packets(ConfigData* config_data) {
+void send_udp_packets(ConfigData* config_data) {
     // Create a UDP socket
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
         perror("Error creating udp socket");
-        return -1;
+        free(config_data);
+        exit(EXIT_FAILURE);
     }
 
     // Set the source port
@@ -142,14 +144,16 @@ int send_udp_packets(ConfigData* config_data) {
     int val = 1;
     if (setsockopt(sock, IPPROTO_IP, IP_DONTFRAG, &val, sizeof(val)) < 0) {
         perror("Error setting udp socket options");
+        free(config_data);
         close(sock);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     if (bind(sock, (struct sockaddr *)&source_addr, sizeof(source_addr)) < 0) {
         perror("Error binding udp socket");
+        free(config_data);
         close(sock);
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     // Set up the server address
@@ -172,8 +176,9 @@ int send_udp_packets(ConfigData* config_data) {
         ssize_t bytes_sent = sendto(sock, payload, sizeof(payload), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         if (bytes_sent < 0) {
             perror("Error sending packets");
+            free(config_data);
             close(sock);
-            return -1;
+            exit(EXIT_FAILURE);
         }
     }
     printf("Low entropy packets sent\n");
@@ -182,11 +187,7 @@ int send_udp_packets(ConfigData* config_data) {
 
     // Send high entropy packets
     memset(payload, 0, sizeof(payload));
-    int bytes = get_random_bytes(payload, config_data);
-    if (bytes == -1) {
-        perror("Unable to generate random bytes");
-        return -1;
-    }
+    get_random_bytes(payload, config_data);
 
     for (int i = 0; i < config_data->num_udp_packets; i++) {
         packet_id = i;
@@ -195,14 +196,14 @@ int send_udp_packets(ConfigData* config_data) {
         ssize_t bytes_sent = sendto(sock, payload, strlen(payload), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         if (bytes_sent < 0) {
             perror("Error sending packets");
+            free(config_data);
             close(sock);
-            return -1;
+            exit(EXIT_FAILURE);
         }
     }
     printf("High entropy packets sent\n");
 
     close(sock);
-    return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -215,19 +216,9 @@ int main(int argc, char *argv[]) {
     // Send config info to server and parse config file info
     char *file_path = argv[1];
     ConfigData* config_data = tcp_pre_probe(file_path);
-    if (config_data == NULL) {
-        perror("Pre probe failed");
-        free(config_data);
-        return -1;
-    }
 
     // Send first packet train
-    int low_entropy_packets = send_udp_packets(config_data);
-    if (low_entropy_packets < 0) {
-        perror("Unable to send udp packet train");
-        free(config_data); 
-        return -1;
-    }
+    send_udp_packets(config_data);
     printf("Packets sent successfully");
 
     // int sock = connect_to_server(config_data, 0);
