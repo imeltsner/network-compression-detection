@@ -213,7 +213,7 @@ int main(int argc, char *argv[]) {
 
     // Send first packet trains
     send_udp_packets(config_data);
-    printf("Packets sent successfully");
+    printf("Packets sent successfully\n");
 
     // int sock = connect_to_server(config_data, 0);
     // if (sock < 0) {
@@ -222,6 +222,6 @@ int main(int argc, char *argv[]) {
     //     return -1;
     // }
 
-    free(config_data);
+    //free(config_data);
     return 0;
 }
