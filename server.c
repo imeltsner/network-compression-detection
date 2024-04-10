@@ -181,7 +181,7 @@ double receive_packet_train(ConfigData* config_data) {
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
+    server_addr.sin_addr.s_addr = inet_addr(config_data->server_ip_addr);
     server_addr.sin_port = htons(config_data->udp_destination_port);
     socklen_t server_addr_len = sizeof(server_addr);
 
