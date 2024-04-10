@@ -232,6 +232,22 @@ double receive_packet_train(ConfigData* config_data) {
     return (high_entropy_time - low_entropy_time) * 1000;
 }
 
+void send_compression_message(ConfigData *config_data, double time_difference) {
+    int tcp_post_sock = create_tcp_socket(config_data->tcp_post_probe);
+    int client_sock = accept_tcp_connection(tcp_post_sock);
+    int compression_detected = time_difference > 100;
+    ssize_t bytes = send(client_sock, &compression_detected, sizeof(int), 0);
+    if (bytes < 0) {
+	perror("Error sending compression message");
+	close(tcp_post_sock);
+	close(client_sock);
+	exit(EXIT_FAILURE);
+    }
+
+    close(tcp_post_sock);
+    close(client_sock);
+}
+
 int main(int argc, char *argv[]) {
     // Arg error checking
     if (argc != 2) {
@@ -242,15 +258,17 @@ int main(int argc, char *argv[]) {
     int port = atoi(argv[1]);
 
     // Create socket and listen for connections
-    int tcp_server_sock = create_tcp_socket(port);
+    int tcp_pre_sock = create_tcp_socket(port);
 
     // Get config data from client
-    ConfigData* config_data = get_config_data(tcp_server_sock);
+    ConfigData* config_data = get_config_data(tcp_pre_sock);
 
     // Get packet trains
     double time_difference = receive_packet_train(config_data);
     printf("Time difference between packet trains: %f milliseconds\n", time_difference);
 
+    // Create post probe tcp socket
+    send_compression_message(config_data, time_difference);
     free(config_data);
 
     return 0;
