@@ -7,7 +7,7 @@
     "tcp_pre_probe": 7777,
     "tcp_post_probe": 6666,
     "udp_payload_size": 1000,
-    "inter_measurement_time": 10,
-    "num_udp_packets": 100,
+    "inter_measurement_time": 15,
+    "num_udp_packets": 6000,
     "ttl": 255
 }
