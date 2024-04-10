@@ -69,30 +69,27 @@ int accept_tcp_connection(int server_sock) {
 }
 
 // Reads bytes of config file from client and returns file contents
-FILE* read_config(int client_sock) {
+void read_config(int client_sock, ConfigData* config_data) {
     // Receive the JSON file from the client
-    FILE *file = tmpfile();
-    if (file == NULL) {
-        perror("Error creating temp file");
-        exit(EXIT_FAILURE);
-    }
-
-    char buffer[1024];
-    ssize_t bytes_received;
-    while ((bytes_received = recv(client_sock, buffer, sizeof(buffer), 0)) > 0) {
-        if (fwrite(buffer, 1, bytes_received, file) != bytes_received) {
-            perror("Error receiving file bytes");
-            fclose(file);
-            exit(EXIT_FAILURE);
-        }
-    }
+    char buffer[4096];
+    memset(buffer, 0, sizeof(buffer));
+    ssize_t bytes_received = recv(client_sock, buffer, sizeof(buffer), 0);
 
     if (bytes_received < 0) {
-        perror("Error: bytes received is negative");
-        exit(EXIT_FAILURE);
+        perror("Error receiving json file bytes");
+	free(config_data);
+	exit(EXIT_FAILURE);
     }
 
-    return file;
+    buffer[bytes_received] = '\0';
+    cJSON *json_root = cJSON_Parse(buffer);
+    if (json_root == NULL) {
+	    perror("Error with cJSON_Parse");
+	    exit(EXIT_FAILURE);
+    }
+
+    extract_config(config_data, json_root);
+    cJSON_Delete(json_root);
 }
 
 // Accepts tcp connections until config file data is successfully extracted
@@ -116,30 +113,8 @@ ConfigData* get_config_data(int server_sock) {
         }
 
         // Read config file from client
-        FILE* file = read_config(client_sock);
-        if (file == NULL) {
-            perror("Unable to read config file");
-            close(server_sock);
-            close(client_sock);
-            free(config_data);
-            exit(EXIT_FAILURE);
-        }
+        read_config(client_sock, config_data);
 
-        // Parse the config file and extract data
-        cJSON *json_root = parse_config(file);
-        if (json_root == NULL) {
-            perror("Unable to parse config file");
-            close(server_sock);
-            close(client_sock);
-            free(config_data);
-            exit(EXIT_FAILURE);
-        }
-
-        extract_config(config_data, json_root);
-    
-        // Clean up
-        cJSON_Delete(json_root);
-        fclose(file);
         close(client_sock);
         close(server_sock);
         return config_data;
