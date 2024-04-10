@@ -137,12 +137,12 @@ void send_udp_packets(ConfigData* config_data) {
     struct sockaddr_in source_addr;
     memset(&source_addr, 0, sizeof(source_addr));
     source_addr.sin_family = AF_INET;
-    source_addr.sin_addr.s_addr = htonl(INADDR_ANY); // Change this to client IP
+    source_addr.sin_addr.s_addr = inet_addr("192.168.128.2");
     source_addr.sin_port = htons(config_data->udp_source_port);
 
     // Set DF flag
     int val = 1;
-    if (setsockopt(sock, IPPROTO_IP, IP_DONTFRAG, &val, sizeof(val)) < 0) {
+    if (setsockopt(sock, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0) {
         perror("Error setting udp socket options");
         free(config_data);
         close(sock);
@@ -193,7 +193,7 @@ void send_udp_packets(ConfigData* config_data) {
         packet_id = i;
         payload[0] = (packet_id >> 8) & 0xFF;
         payload[1] = packet_id & 0xFF;
-        ssize_t bytes_sent = sendto(sock, payload, strlen(payload), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        ssize_t bytes_sent = sendto(sock, payload, sizeof(payload), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         if (bytes_sent < 0) {
             perror("Error sending packets");
             free(config_data);
