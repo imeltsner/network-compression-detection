@@ -137,12 +137,12 @@ void send_udp_packets(ConfigData* config_data) {
     struct sockaddr_in source_addr;
     memset(&source_addr, 0, sizeof(source_addr));
     source_addr.sin_family = AF_INET;
-    source_addr.sin_addr.s_addr = inet_addr("192.168.128.2");
+    source_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     source_addr.sin_port = htons(config_data->udp_source_port);
 
     // Set DF flag
     int val = 1;
-    if (setsockopt(sock, IPPROTO_IP, IP_MTU_DISCOVER, &val, sizeof(val)) < 0) {
+    if (setsockopt(sock, IPPROTO_IP, IP_DONTFRAG, &val, sizeof(val)) < 0) {
         perror("Error setting udp socket options");
         free(config_data);
         close(sock);

@@ -227,7 +227,7 @@ double receive_packet_train(ConfigData* config_data) {
         gettimeofday(&low_entropy_end, NULL);
     }
     timeval_subtract(&low_entropy_elapsed, &low_entropy_end, &low_entropy_start);
-    printf("First packet train received in %ld.%06ld seconds\n", low_entropy_elapsed.tv_sec, low_entropy_elapsed.tv_usec);
+    printf("First packet train received in %ld.%06d seconds\n", low_entropy_elapsed.tv_sec, low_entropy_elapsed.tv_usec);
     double low_entropy_time = low_entropy_elapsed.tv_sec + 1e-6 * low_entropy_elapsed.tv_usec;
 
     sleep(config_data->inter_measurement_time);
@@ -250,7 +250,7 @@ double receive_packet_train(ConfigData* config_data) {
         gettimeofday(&high_entropy_end, NULL);
     }
     timeval_subtract(&high_entropy_elapsed, &high_entropy_end, &high_entropy_start);
-    printf("Second packet train received in %ld.%06ld seconds\n", high_entropy_elapsed.tv_sec, high_entropy_elapsed.tv_usec);
+    printf("Second packet train received in %ld.%06d seconds\n", high_entropy_elapsed.tv_sec, high_entropy_elapsed.tv_usec);
     double high_entropy_time = high_entropy_elapsed.tv_sec + 1e-6 * high_entropy_elapsed.tv_usec;
 
     close(server_sock);

@@ -1,5 +1,5 @@
 {
-    "server_ip_addr": "192.168.128.3",
+    "server_ip_addr": "127.0.0.1",
     "udp_source_port": 9876,
     "udp_destination_port": 8765,
     "tcp_head_syn": 9999,
