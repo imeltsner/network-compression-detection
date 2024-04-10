@@ -43,22 +43,16 @@ int connect_to_server(ConfigData* config_data, int pre_probe) {
 
 // Sends a file via TCP to the server
 // Returns socket file descriptor
-int send_config(FILE* file, int sock) {
-    rewind(file);
-
-    // Send the file to the server
-    char buffer[1024];
-    size_t bytes_read;
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        if (send(sock, buffer, bytes_read, 0) < 0) {
-            perror("Error sending config file");
-            fclose(file);
-            exit(EXIT_FAILURE);
-        }
+int send_config(cJSON *json_root, int sock) {
+    // Convert JSON object to string	
+    char *json_data = cJSON_PrintUnformatted(json_root);
+    ssize_t bytes_sent = send(sock, json_data, strlen(json_data), 0);
+    if (bytes_sent < 0) {
+	    perror("Error sending json file");
+	    exit(EXIT_FAILURE);
     }
 
-    // Close the file
-    fclose(file);
+    cJSON_Delete(json_root);
     printf("File sent successfully.\n");
     return sock;
 }
@@ -94,7 +88,7 @@ ConfigData* tcp_pre_probe(char* file_path) {
     }
 
     // Send config file to server
-    sock = send_config(file, sock);
+    sock = send_config(json_root, sock);
     if (sock < 0) {
         perror("Unable to send config file");
         exit(EXIT_FAILURE);
@@ -217,7 +211,7 @@ int main(int argc, char *argv[]) {
     char *file_path = argv[1];
     ConfigData* config_data = tcp_pre_probe(file_path);
 
-    // Send first packet train
+    // Send first packet trains
     send_udp_packets(config_data);
     printf("Packets sent successfully");
 
