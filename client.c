@@ -34,6 +34,7 @@ int connect_to_server(ConfigData* config_data, int pre_probe) {
 
     // Connect to the server
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+	perror("Unable to connect to server");
         free(config_data);
         exit(EXIT_FAILURE);
     }
@@ -200,6 +201,32 @@ void send_udp_packets(ConfigData* config_data) {
     close(sock);
 }
 
+void receive_compression_message(ConfigData *config_data) {
+    int sock = connect_to_server(config_data, 0);
+    if (sock < 0) {
+        perror("Post probe failed");
+        close(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    int has_compression;
+    ssize_t bytes = recv(sock, &has_compression, sizeof(has_compression), 0);
+    if (bytes < 0) {
+	perror("Error receiving compression message");
+	free(config_data);
+	close(sock);
+        exit(EXIT_FAILURE);
+    }
+
+    if (has_compression == 0) {
+	printf("No compression detected\n");
+    } else {
+	printf("Compression detected\n");
+    }
+
+    close(sock);
+}
+
 int main(int argc, char *argv[]) {
     // Arg error checking
     if (argc != 2) {
@@ -214,13 +241,9 @@ int main(int argc, char *argv[]) {
     // Send first packet trains
     send_udp_packets(config_data);
     printf("Packets sent successfully\n");
-
-    // int sock = connect_to_server(config_data, 0);
-    // if (sock < 0) {
-    //     perror("Post probe failed");
-    //     close(sock);
-    //     return -1;
-    // }
+    
+    sleep(10);
+    receive_compression_message(config_data);
 
     //free(config_data);
     return 0;
