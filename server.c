@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <sys/errno.h>
+#include <math.h>
 #include "cJSON.h"
 #include "config.h"
 
@@ -121,6 +122,7 @@ ConfigData* get_config_data(int server_sock) {
     }
 }
 
+// https://www.gnu.org/software/libc/manual/html_node/Calculating-Elapsed-Time.html
 // Gets difference between two timevals
 int timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y) {
     /* Perform the carry for the later subtraction by updating y. */
@@ -186,7 +188,7 @@ double receive_packet_train(ConfigData* config_data) {
     // Receive packets
     struct timeval low_entropy_start, low_entropy_end, low_entropy_elapsed;
     gettimeofday(&low_entropy_start, NULL);
-    while (1) {
+    for (int i = 0; i < config_data->num_udp_packets; i++) {
         ssize_t bytes_received = recvfrom(server_sock, buffer, config_data->udp_payload_size, 0, (struct sockaddr *)&server_addr, &server_addr_len);
         if (bytes_received < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -209,7 +211,7 @@ double receive_packet_train(ConfigData* config_data) {
 
     struct timeval high_entropy_start, high_entropy_end, high_entropy_elapsed;
     gettimeofday(&high_entropy_start, NULL);
-    while (1) {
+    for (int i = 0; i < config_data->num_udp_packets; i++) {
         ssize_t bytes_received = recvfrom(server_sock, buffer, config_data->udp_payload_size, 0, (struct sockaddr *)&server_addr, &server_addr_len);
         if (bytes_received < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -235,7 +237,7 @@ double receive_packet_train(ConfigData* config_data) {
 void send_compression_message(ConfigData *config_data, double time_difference) {
     int tcp_post_sock = create_tcp_socket(config_data->tcp_post_probe);
     int client_sock = accept_tcp_connection(tcp_post_sock);
-    int compression_detected = time_difference > 100;
+    int compression_detected = fabs(time_difference) > 100;
     ssize_t bytes = send(client_sock, &compression_detected, sizeof(int), 0);
     if (bytes < 0) {
 	perror("Error sending compression message");
