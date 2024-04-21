@@ -67,7 +67,7 @@ ConfigData* tcp_pre_probe(char* file_path) {
     }
 
     // Parse and extract config data
-    ConfigData* config_data = malloc(sizeof(config_data));
+    ConfigData* config_data = malloc(sizeof(*config_data));
     if (config_data == NULL) {
         perror("Error allocating config data");
         exit(EXIT_FAILURE);
@@ -244,6 +244,7 @@ int main(int argc, char *argv[]) {
     
     sleep(10);
     receive_compression_message(config_data);
-
+    
+    free(config_data);
     return 0;
 }
