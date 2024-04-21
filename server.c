@@ -96,7 +96,7 @@ void read_config(int client_sock, ConfigData* config_data) {
 // Accepts tcp connections until config file data is successfully extracted
 ConfigData* get_config_data(int server_sock) {
     // Allocate ConfigData struct
-    ConfigData* config_data = malloc(sizeof(ConfigData));
+    ConfigData* config_data = malloc(sizeof(*config_data));
     if (config_data == NULL) {
         perror("Error allocating ConfigData");
         close(server_sock);
