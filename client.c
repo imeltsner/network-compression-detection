@@ -133,7 +133,7 @@ void send_udp_packets(ConfigData* config_data) {
     struct sockaddr_in source_addr;
     memset(&source_addr, 0, sizeof(source_addr));
     source_addr.sin_family = AF_INET;
-    source_addr.sin_addr.s_addr = inet_addr("192.168.128.2");
+    source_addr.sin_addr.s_addr = INADDR_ANY;
     source_addr.sin_port = htons(config_data->udp_source_port);
 
     // Set DF flag
