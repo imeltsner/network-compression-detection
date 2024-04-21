@@ -20,7 +20,7 @@ ConfigData* get_config_data(char *file_path) {
     }
 
     // Parse and extract config data
-    ConfigData* config_data = malloc(sizeof(config_data));
+    ConfigData *config_data = malloc(sizeof(*config_data));
     if (config_data == NULL) {
         perror("Error allocating config data");
         exit(EXIT_FAILURE);
@@ -32,6 +32,8 @@ ConfigData* get_config_data(char *file_path) {
         exit(EXIT_FAILURE);
     }
     extract_config(config_data, json_root);
+
+    return config_data;
 }
 
 int main(int argc, char *argv[]) {
@@ -44,7 +46,6 @@ int main(int argc, char *argv[]) {
     // Send config info to server and parse config file info
     char *file_path = argv[1];
     ConfigData* config_data = get_config_data(file_path);
-    print_config(config_data);
 
     free(config_data);
     return 0;
