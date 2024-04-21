@@ -99,6 +99,7 @@ ConfigData* tcp_pre_probe(char* file_path) {
     return config_data;
 }
 
+// Reads random bytes from a file
 void get_random_bytes(char buffer[], ConfigData* config_data) {
     FILE* fp = fopen("random_file", "rb");
     if (fp == NULL) {
