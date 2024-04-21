@@ -245,6 +245,5 @@ int main(int argc, char *argv[]) {
     sleep(10);
     receive_compression_message(config_data);
 
-    //free(config_data);
     return 0;
 }
