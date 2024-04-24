@@ -48,7 +48,6 @@ unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
     return (unsigned short)(~sum);
 }
 
-
 unsigned short ip_checksum(struct iphdr *iph) {
     unsigned long sum = 0;
     unsigned short *ptr;
