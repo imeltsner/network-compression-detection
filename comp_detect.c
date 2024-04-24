@@ -63,7 +63,6 @@ unsigned short ip_checksum(struct iphdr *iph) {
 
     return (unsigned short)(~sum);
 }
-`
 
 // Function to create and send a SYN packet
 void send_syn_packet(ConfigData *config_data, int destination_port) {
