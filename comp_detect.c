@@ -259,7 +259,7 @@ int send_raw_socket(ConfigData *config_data, int destination_port) {
     close (sd);
 
     // Source IPv4 address: you need to fill this out
-    strcpy (src_ip, config_data->server_ip_addr);
+    strcpy (src_ip, "0.0.0.0");
 
     // Destination URL or IPv4 address: you need to fill this out
     char destinationPortStr[20];
@@ -321,7 +321,7 @@ int send_raw_socket(ConfigData *config_data, int destination_port) {
     }
 
 
-    const char* destinationIP = "192.168.64.3";
+    const char* destinationIP = config_data->server_ip_addr;
     // Destination IPv4 address (32 bits)
     if ((status = inet_pton (AF_INET, destinationIP, &(iphdr.ip_dst))) != 1) {
         fprintf (stderr, "inet_pton() failed for destination address.\nError message: %s", strerror (status));
