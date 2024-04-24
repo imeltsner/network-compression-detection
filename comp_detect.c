@@ -37,7 +37,7 @@ void send_syn_packet(ConfigData* config_data, int destination_port) {
     char packet[4096]; // Raw packet buffer
 
     // Create raw socket
-    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) == -1) {
+    if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
         perror("socket");
         exit(EXIT_FAILURE);
     }
