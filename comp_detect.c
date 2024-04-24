@@ -12,7 +12,8 @@
 #include <netinet/ip.h>       
 #include <netinet/tcp.h>      
 #include <arpa/inet.h>        
-#include <sys/ioctl.h>        
+#include <sys/ioctl.h>
+#include <pthread.h>      
 #include <errno.h>    
 #include "cJSON.h"
 #include "config.h"
