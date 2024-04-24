@@ -90,7 +90,7 @@ void send_syn_packet(ConfigData *config_data, int destination_port) {
     ip->ttl = 255;
     ip->protocol = IPPROTO_TCP;
     ip->check = 0; // Will be filled later
-    ip->saddr = inet_addr("0.0.0.0");
+    ip->saddr = inet_addr("192.168.128.2");
     ip->daddr = inet_addr(config_data->server_ip_addr);
 
     // TCP header
