@@ -20,59 +20,63 @@
 #include <net/if.h>           // struct ifreq
 #include <errno.h>            // errno, perror()
 
-unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
-    unsigned long sum = 0;
-    unsigned short *ptr;
-    int tcplen = ntohs(iph->tot_len) - iph->ihl * 4;
-    int i;
-
-    // Pseudo-header checksum
-    sum += (iph->saddr >> 16) & 0xFFFF;
-    sum += iph->saddr & 0xFFFF;
-    sum += (iph->daddr >> 16) & 0xFFFF;
-    sum += iph->daddr & 0xFFFF;
-    sum += htons(IPPROTO_TCP);
-    sum += htons(tcplen);
-
-    // TCP header checksum
-    ptr = (unsigned short *)tcph;
-    for (i = tcplen; i > 1; i -= 2)
-        sum += *ptr++;
-    if (i == 1)
-        sum += *((unsigned char *)ptr);
-
-    // Fold 32-bit sum to 16 bits
-    while (sum >> 16)
-        sum = (sum & 0xFFFF) + (sum >> 16);
-
+// Function to calculate the IP checksum
+unsigned short ip_checksum(unsigned short *buf, int nwords) {
+    unsigned long sum;
+    for(sum=0; nwords>0; nwords--)
+        sum += *buf++;
+    sum = (sum >> 16) + (sum &0xffff);
+    sum += (sum >> 16);
     return (unsigned short)(~sum);
 }
 
-unsigned short ip_checksum(struct iphdr *iph) {
+// Function to calculate the TCP checksum
+unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
+    unsigned short *buf;
+    int header_len = ntohs(iph->tot_len) - iph->ihl * 4;
+    int tcp_len = sizeof(struct tcphdr);
+    int total_len = tcp_len + header_len;
+    int nwords = total_len / 2;
     unsigned long sum = 0;
-    unsigned short *ptr;
 
-    // IP header checksum
-    ptr = (unsigned short *)iph;
-    for (int i = iph->ihl * 2; i > 0; i--)
-        sum += *ptr++;
-    
+    // Initialize the buffer with pseudo header
+    buf = (unsigned short *) malloc(total_len);
+    memcpy(buf, iph, header_len);
+    memcpy(buf + header_len / 2, tcph, tcp_len);
+
+    // Calculate the sum
+    for (int i = 0; i < nwords; i++) {
+        sum += *(buf + i);
+    }
+
+    // Adjust for the case of odd byte count
+    if (total_len % 2) {
+        sum += *((unsigned char *)tcph + tcp_len - 1);
+    }
+
     // Fold 32-bit sum to 16 bits
-    while (sum >> 16)
-        sum = (sum & 0xFFFF) + (sum >> 16);
+    while (sum >> 16) {
+        sum = (sum & 0xffff) + (sum >> 16);
+    }
 
-    return (unsigned short)(~sum);
+    // Take the one's complement
+    sum = ~sum;
+
+    // Free the buffer
+    free(buf);
+
+    return (unsigned short)sum;
 }
 
 // Function to create and send a SYN packet
-void send_syn_packet(ConfigData* config_data, int destination_port) {
+void send_syn_packet(ConfigData *config_data, int destination_port) {
     int sockfd;
     struct sockaddr_in dest;
     char packet[4096]; // Raw packet buffer
 
     // Create raw socket
     if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
-        perror("socket");
+        perror("Error creating raw socket");
         exit(EXIT_FAILURE);
     }
 
@@ -111,20 +115,20 @@ void send_syn_packet(ConfigData* config_data, int destination_port) {
     tcp->urg_ptr = 0;
 
     // IP checksum
-    ip->check = ip_checksum(ip);
+    ip->check = ip_checksum((unsigned short *)ip, ip->ihl * 4);
+
+    // TCP checksum
     tcp->check = tcp_checksum(ip, tcp);
-    
 
     // Send packet
     dest.sin_family = AF_INET;
     dest.sin_addr.s_addr = ip->daddr;
     int bytes_sent = sendto(sockfd, packet, ntohs(ip->tot_len), 0, (struct sockaddr *)&dest, sizeof(dest));
     if (bytes_sent < 0) {
-        perror("Unable to send SYN packet\n");
+        perror("Error sending SYN packet\n");
         close(sockfd);
         exit(EXIT_FAILURE);
     }
-    printf("Bytes sent: %d\n", bytes_sent);
 
     // Close socket
     close(sockfd);
