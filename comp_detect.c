@@ -20,7 +20,7 @@
 #include <net/if.h>           // struct ifreq
 #include <errno.h>            // errno, perror()
 
-`unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
+unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
     unsigned long sum = 0;
     unsigned short *ptr;
     int tcplen = ntohs(iph->tot_len) - iph->ihl * 4;
