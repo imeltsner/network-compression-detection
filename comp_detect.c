@@ -22,8 +22,8 @@
 
 unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
     unsigned long sum = 0;
-    unsigned short ptr;
-    int tcplen = ntohs(iph->tot_len) - iph->ihl 4;
+    unsigned short *ptr;
+    int tcplen = ntohs(iph->tot_len) - iph->ihl * 4;
     int i;
 
     // Pseudo-header checksum
@@ -35,11 +35,11 @@ unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
     sum += htons(tcplen);
 
     // TCP header checksum
-    ptr = (unsigned short )tcph;
+    ptr = (unsigned short *)tcph;
     for (i = tcplen; i > 1; i -= 2)
-        sum +=ptr++;
+        sum += *ptr++;
     if (i == 1)
-        sum += ((unsigned char)ptr);
+        sum += *((unsigned char *)ptr);
 
     // Fold 32-bit sum to 16 bits
     while (sum >> 16)
@@ -50,13 +50,13 @@ unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
 
 unsigned short ip_checksum(struct iphdr *iph) {
     unsigned long sum = 0;
-    unsigned shortptr;
+    unsigned short *ptr;
 
     // IP header checksum
-    ptr = (unsigned short )iph;
-    for (int i = iph->ihl 2; i > 0; i--)
+    ptr = (unsigned short *)iph;
+    for (int i = iph->ihl * 2; i > 0; i--)
         sum += *ptr++;
-
+    
     // Fold 32-bit sum to 16 bits
     while (sum >> 16)
         sum = (sum & 0xFFFF) + (sum >> 16);
