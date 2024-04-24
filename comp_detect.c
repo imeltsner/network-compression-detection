@@ -266,6 +266,16 @@ void send_udp_packets(ConfigData* config_data) {
     close(sock);
 }
 
+void* send_packets(void *arg) {
+    ConfigData *config_data = (ConfigData *) arg;
+
+    send_syn_packet(config_data, config_data->tcp_head_syn);
+    send_udp_packets(config_data);
+    send_syn_packet(config_data, config_data->tcp_tail_syn);
+
+    pthread_exit(NULL);
+}
+
 int main(int argc, char *argv[]) {
     // Arg error checking
     if (argc != 2) {
@@ -277,10 +287,25 @@ int main(int argc, char *argv[]) {
     char *file_path = argv[1];
     ConfigData* config_data = get_config_data(file_path);
 
-    // Send packets
-    send_syn_packet(config_data, config_data->tcp_head_syn);
-    send_udp_packets(config_data);
-    send_syn_packet(config_data, config_data->tcp_tail_syn);
+    // Set up multithread
+    pthread_t sendThread;
+
+    // Create threads
+    if (pthread_create(&sendThread, NULL, send_packets, (void*)&config_data) != 0) {
+        perror("Error creating send thread");
+        exit(EXIT_FAILURE);
+    }
+
+    // Wait for threads to finish
+    if (pthread_join(sendThread, NULL) != 0) {
+        perror("Error joining send thread");
+        exit(EXIT_FAILURE);
+    }
+
+    // // Send packets
+    // send_syn_packet(config_data, config_data->tcp_head_syn);
+    // send_udp_packets(config_data);
+    // send_syn_packet(config_data, config_data->tcp_tail_syn);
 
     free(config_data);
     return 0;
