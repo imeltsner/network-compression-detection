@@ -20,8 +20,18 @@
 #include <net/if.h>           // struct ifreq
 #include <errno.h>            // errno, perror()
 
-// Function to calculate the checksum of a packet
-unsigned short checksum(unsigned short *buf, int nwords) {
+// Function to calculate the IP checksum
+unsigned short ip_checksum(unsigned short *buf, int nwords) {
+    unsigned long sum;
+    for(sum=0; nwords>0; nwords--)
+        sum += *buf++;
+    sum = (sum >> 16) + (sum &0xffff);
+    sum += (sum >> 16);
+    return (unsigned short)(~sum);
+}
+
+// Function to calculate the TCP checksum
+unsigned short tcp_checksum(unsigned short *buf, int nwords) {
     unsigned long sum;
     for(sum=0; nwords>0; nwords--)
         sum += *buf++;
@@ -77,7 +87,7 @@ void send_syn_packet(ConfigData* config_data, int destination_port) {
     tcp->urg_ptr = 0;
 
     // IP checksum
-    ip->check = checksum((unsigned short *)packet, ip->ihl * 4);
+    ip->check = ip_checksum((unsigned short *)packet, ip->ihl * 4);
 
     // TCP pseudo-header
     struct pseudo_header {
@@ -99,7 +109,7 @@ void send_syn_packet(ConfigData* config_data, int destination_port) {
     char *pseudo_packet = malloc(packet_length);
     memcpy(pseudo_packet, (char *)&pseudo_header, sizeof(struct pseudo_header));
     memcpy(pseudo_packet + sizeof(struct pseudo_header), tcp, sizeof(struct tcphdr));
-    tcp->check = checksum((unsigned short *)pseudo_packet, packet_length / 2);
+    tcp->check = tcp_checksum((unsigned short *)pseudo_packet, packet_length / 2);
     free(pseudo_packet);
 
     // Send packet
