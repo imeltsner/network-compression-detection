@@ -111,7 +111,7 @@ void send_syn_packet(ConfigData* config_data, int destination_port) {
         close(sockfd);
         exit(EXIT_FAILURE);
     }
-    printf("Bytes sent: %ld\n", bytes_sent);
+    printf("Bytes sent: %d\n", bytes_sent);
 
     // Close socket
     close(sockfd);
