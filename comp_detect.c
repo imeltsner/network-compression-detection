@@ -289,19 +289,19 @@ int main(int argc, char *argv[]) {
     ConfigData* config_data = get_config_data(file_path);
 
     // Set up multithread
-    // pthread_t sendThread;
+    pthread_t sendThread;
 
-    // // Create threads
-    // if (pthread_create(&sendThread, NULL, send_packets, (void*)&config_data) != 0) {
-    //     perror("Error creating send thread");
-    //     exit(EXIT_FAILURE);
-    // }
+    // Create threads
+    if (pthread_create(&sendThread, NULL, send_packets, (void*)&config_data) != 0) {
+        perror("Error creating send thread");
+        exit(EXIT_FAILURE);
+    }
 
-    // // Wait for threads to finish
-    // if (pthread_join(sendThread, NULL) != 0) {
-    //     perror("Error joining send thread");
-    //     exit(EXIT_FAILURE);
-    // }
+    // Wait for threads to finish
+    if (pthread_join(sendThread, NULL) != 0) {
+        perror("Error joining send thread");
+        exit(EXIT_FAILURE);
+    }
 
     // Send packets
     send_syn_packet(config_data, config_data->tcp_head_syn);
