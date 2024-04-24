@@ -112,29 +112,8 @@ void send_syn_packet(ConfigData* config_data, int destination_port) {
 
     // IP checksum
     ip->check = ip_checksum(ip);
-
-    // TCP pseudo-header
-    struct pseudo_header {
-        unsigned int source_address;
-        unsigned int dest_address;
-        unsigned char placeholder;
-        unsigned char protocol;
-        unsigned short tcp_length;
-    } pseudo_header;
-
-    pseudo_header.source_address = inet_addr("0.0.0.0");
-    pseudo_header.dest_address = inet_addr(config_data->server_ip_addr);
-    pseudo_header.placeholder = 0;
-    pseudo_header.protocol = IPPROTO_TCP;
-    pseudo_header.tcp_length = htons(sizeof(struct tcphdr));
-
-    // TCP checksum
-    int packet_length = sizeof(struct pseudo_header) + sizeof(struct tcphdr);
-    char *pseudo_packet = malloc(packet_length);
-    memcpy(pseudo_packet, (char *)&pseudo_header, sizeof(struct pseudo_header));
-    memcpy(pseudo_packet + sizeof(struct pseudo_header), tcp, sizeof(struct tcphdr));
     tcp->check = tcp_checksum(ip, tcp);
-    free(pseudo_packet);
+    
 
     // Send packet
     dest.sin_family = AF_INET;
