@@ -5,20 +5,17 @@
 #include <sys/time.h>
 #include <sys/errno.h>
 #include <math.h>
+#include <netdb.h>            
+#include <sys/types.h>        
+#include <sys/socket.h>       
+#include <netinet/in.h>       
+#include <netinet/ip.h>       
+#include <netinet/tcp.h>      
+#include <arpa/inet.h>        
+#include <sys/ioctl.h>        
+#include <errno.h>    
 #include "cJSON.h"
 #include "config.h"
-#include <netdb.h>            // struct addrinfo
-#include <sys/types.h>        // needed for socket(), uint8_t, uint16_t, uint32_t
-#include <sys/socket.h>       // needed for socket()
-#include <netinet/in.h>       // IPPROTO_RAW, IPPROTO_IP, IPPROTO_TCP, INET_ADDRSTRLEN
-#include <netinet/ip.h>       // struct ip and IP_MAXPACKET (which is 65535)
-#define __FAVOR_BSD           // Use BSD format of tcp header
-#include <netinet/tcp.h>      // struct tcphdr
-#include <arpa/inet.h>        // inet_pton() and inet_ntop()
-#include <sys/ioctl.h>        // macro ioctl is defined
-#include <bits/ioctls.h>      // defines values for argument "request" of ioctl.
-#include <net/if.h>           // struct ifreq
-#include <errno.h>            // errno, perror()
 
 unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
     unsigned long sum = 0;
