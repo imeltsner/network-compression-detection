@@ -20,7 +20,7 @@
 #include <net/if.h>           // struct ifreq
 #include <errno.h>            // errno, perror()
 
-unsigned short tcp_checksum(struct iphdr iph, struct tcphdr tcph) {
+unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
     unsigned long sum = 0;
     unsigned short ptr;
     int tcplen = ntohs(iph->tot_len) - iph->ihl 4;
@@ -48,7 +48,7 @@ unsigned short tcp_checksum(struct iphdr iph, struct tcphdr tcph) {
     return (unsigned short)(~sum);
 }
 
-unsigned short ip_checksum(struct iphdr iph) {
+unsigned short ip_checksum(struct iphdr *iph) {
     unsigned long sum = 0;
     unsigned shortptr;
 
@@ -111,7 +111,7 @@ void send_syn_packet(ConfigData* config_data, int destination_port) {
     tcp->urg_ptr = 0;
 
     // IP checksum
-    ip->check = ip_checksum(*ip);
+    ip->check = ip_checksum(ip);
 
     // TCP pseudo-header
     struct pseudo_header {
@@ -133,7 +133,7 @@ void send_syn_packet(ConfigData* config_data, int destination_port) {
     char *pseudo_packet = malloc(packet_length);
     memcpy(pseudo_packet, (char *)&pseudo_header, sizeof(struct pseudo_header));
     memcpy(pseudo_packet + sizeof(struct pseudo_header), tcp, sizeof(struct tcphdr));
-    tcp->check = tcp_checksum(*ip, *tcp);
+    tcp->check = tcp_checksum(ip, tcp);
     free(pseudo_packet);
 
     // Send packet
