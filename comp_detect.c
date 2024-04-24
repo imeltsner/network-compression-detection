@@ -105,7 +105,7 @@ void send_syn_packet(ConfigData* config_data, int destination_port) {
     // Send packet
     dest.sin_family = AF_INET;
     dest.sin_addr.s_addr = ip->daddr;
-    int bytes_sent = sendto(sockfd, packet, ip->tot_len, 0, (struct sockaddr *)&dest, sizeof(dest));
+    int bytes_sent = sendto(sockfd, packet, ntohs(ip->tot_len), 0, (struct sockaddr *)&dest, sizeof(dest));
     if (bytes_sent < 0) {
         perror("Unable to send SYN packet\n");
         close(sockfd);
