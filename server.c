@@ -50,13 +50,11 @@ int create_tcp_socket(int port) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Server listening for TCP connections on port %d...\n", port);
     return server_sock;
 }
 
 // Accepts a client connection and returns client file descriptor
 int accept_tcp_connection(int server_sock) {
-    // Accept a client connection
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     int client_sock = accept(server_sock, (struct sockaddr *)&client_addr, &client_addr_len);
@@ -65,7 +63,6 @@ int accept_tcp_connection(int server_sock) {
         exit(EXIT_FAILURE);
     }
 
-    printf("Client connected from %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
     return client_sock;
 }
 
@@ -78,10 +75,11 @@ void read_config(int client_sock, ConfigData* config_data) {
 
     if (bytes_received < 0) {
         perror("Error receiving json file bytes");
-	free(config_data);
-	exit(EXIT_FAILURE);
+	    free(config_data);
+	    exit(EXIT_FAILURE);
     }
 
+    // Parse and extract contents
     buffer[bytes_received] = '\0';
     cJSON *json_root = cJSON_Parse(buffer);
     if (json_root == NULL) {
@@ -145,6 +143,8 @@ int timeval_subtract (struct timeval *result, struct timeval *x, struct timeval 
     return x->tv_sec < y->tv_sec;
 }
 
+// Receives two udp packet trains
+// Calculates the time difference between the first and last packet of each train
 double receive_packet_train(ConfigData* config_data) {
     // Create a UDP socket
     int server_sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -185,7 +185,7 @@ double receive_packet_train(ConfigData* config_data) {
     char buffer[config_data->udp_payload_size];
     bzero(buffer, sizeof(buffer));
 
-    // Receive packets
+    // Receive first packet train
     struct timeval low_entropy_start, low_entropy_end, low_entropy_elapsed;
     gettimeofday(&low_entropy_start, NULL);
     for (int i = 0; i < config_data->num_udp_packets; i++) {
@@ -203,12 +203,14 @@ double receive_packet_train(ConfigData* config_data) {
         }
         gettimeofday(&low_entropy_end, NULL);
     }
+
+    // Calculate time difference
     timeval_subtract(&low_entropy_elapsed, &low_entropy_end, &low_entropy_start);
-    printf("First packet train received in %ld.%06ld seconds\n", low_entropy_elapsed.tv_sec, low_entropy_elapsed.tv_usec);
     double low_entropy_time = low_entropy_elapsed.tv_sec + 1e-6 * low_entropy_elapsed.tv_usec;
 
     sleep(config_data->inter_measurement_time);
 
+    // Receive second packet train
     struct timeval high_entropy_start, high_entropy_end, high_entropy_elapsed;
     gettimeofday(&high_entropy_start, NULL);
     for (int i = 0; i < config_data->num_udp_packets; i++) {
@@ -226,18 +228,24 @@ double receive_packet_train(ConfigData* config_data) {
         }
         gettimeofday(&high_entropy_end, NULL);
     }
+
+    // Calculate time difference
     timeval_subtract(&high_entropy_elapsed, &high_entropy_end, &high_entropy_start);
-    printf("Second packet train received in %ld.%06ld seconds\n", high_entropy_elapsed.tv_sec, high_entropy_elapsed.tv_usec);
     double high_entropy_time = high_entropy_elapsed.tv_sec + 1e-6 * high_entropy_elapsed.tv_usec;
 
     close(server_sock);
     return (high_entropy_time - low_entropy_time) * 1000;
 }
 
+// Reports to the client if network compression was detected
+// Sends a 1 for compression and 0 for no compression
 void send_compression_message(ConfigData *config_data, double time_difference) {
+    // Establish TCP connection
     int tcp_post_sock = create_tcp_socket(config_data->tcp_post_probe);
     int client_sock = accept_tcp_connection(tcp_post_sock);
     int compression_detected = fabs(time_difference) > 100;
+
+    // Send message to client
     ssize_t bytes = send(client_sock, &compression_detected, sizeof(int), 0);
     if (bytes < 0) {
         perror("Error sending compression message");

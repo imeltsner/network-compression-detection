@@ -49,7 +49,6 @@ void extract_config(ConfigData* config_data, const cJSON* json_root) {
     config_data->inter_measurement_time = cJSON_GetObjectItem(json_root, "inter_measurement_time")->valueint;
     config_data->num_udp_packets = cJSON_GetObjectItem(json_root, "num_udp_packets")->valueint;
     config_data->ttl = cJSON_GetObjectItem(json_root, "ttl")->valueint;
-    printf("JSON file received and parsed successfully.\n");
 }
 
 // Prints ConfigData struct

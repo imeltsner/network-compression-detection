@@ -18,6 +18,7 @@
 #include "cJSON.h"
 #include "config.h"
 
+// Calculates the TCP header checksum
 unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
     unsigned long sum = 0;
     unsigned short *ptr;
@@ -46,6 +47,7 @@ unsigned short tcp_checksum(struct iphdr *iph, struct tcphdr *tcph) {
     return (unsigned short)(~sum);
 }
 
+// Calculates the IP header checksum
 unsigned short ip_checksum(struct iphdr *iph) {
     unsigned long sum = 0;
     unsigned short *ptr;
@@ -128,7 +130,7 @@ void send_syn_packet(ConfigData *config_data, int destination_port) {
     close(sockfd);
 }
 
-// Reads a parses a config file
+// Reads and parses a config file
 ConfigData* get_config_data(char *file_path) {
     // Open config file
     FILE *file = fopen(file_path, "rb");
@@ -143,19 +145,21 @@ ConfigData* get_config_data(char *file_path) {
         perror("Error allocating config data");
         exit(EXIT_FAILURE);
     }
+
     cJSON* json_root = parse_config(file);
     if (json_root == NULL) {
         perror("Unnable to parse config file");
         free(config_data);
         exit(EXIT_FAILURE);
     }
-    extract_config(config_data, json_root);
 
+    extract_config(config_data, json_root);
     return config_data;
 }
 
 // Reads random bytes from a file
 void get_random_bytes(char buffer[], ConfigData* config_data) {
+    // Open file with random bytes
     FILE* fp = fopen("random_file", "rb");
     if (fp == NULL) {
         perror("Error opening random_file");
@@ -163,6 +167,7 @@ void get_random_bytes(char buffer[], ConfigData* config_data) {
         exit(EXIT_FAILURE);
     }
 
+    // Read bytes into buffer
     ssize_t result = fread(buffer, 1, config_data->udp_payload_size, fp);
     if (result < 0) {
         perror("Error reading random bytes");
@@ -174,7 +179,8 @@ void get_random_bytes(char buffer[], ConfigData* config_data) {
     fclose(fp);
 }
 
-// Create a udp socket and sends two packet trains
+// Sends a head SYN packet followed by a low entropy UDP packet train and a tail SYN packet
+// Repeats process for high entropy UDP train
 void send_packets(ConfigData* config_data) {
     // Create a UDP socket
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -209,7 +215,7 @@ void send_packets(ConfigData* config_data) {
         exit(EXIT_FAILURE);
     }
 
-
+    // Bind socket
     if (bind(sock, (struct sockaddr *)&source_addr, sizeof(source_addr)) < 0) {
         perror("Error binding udp socket");
         free(config_data);
@@ -245,7 +251,6 @@ void send_packets(ConfigData* config_data) {
             exit(EXIT_FAILURE);
         }
     }
-    printf("Low entropy packets sent\n");
 
     // Send tail SYN
     send_syn_packet(config_data, config_data->tcp_tail_syn);
@@ -272,7 +277,6 @@ void send_packets(ConfigData* config_data) {
             exit(EXIT_FAILURE);
         }
     }
-    printf("High entropy packets sent\n");
     
     // Send tail SYN
     send_syn_packet(config_data, config_data->tcp_tail_syn);
@@ -303,6 +307,9 @@ int timeval_subtract (struct timeval *result, struct timeval *x, struct timeval 
     return x->tv_sec < y->tv_sec;
 }
 
+// Listens for RST packets in response to SYN packets
+// Calculates time difference between receiving RST packets 
+// Outputs compression message
 void* listen_for_rst(void *arg) {
     ConfigData *config_data = (ConfigData *) arg;
 
@@ -320,6 +327,7 @@ void* listen_for_rst(void *arg) {
         exit(EXIT_FAILURE);
     }
 
+    // Set socket data
     struct sockaddr_in server_addr;
     socklen_t server_size = sizeof(server_addr);
     memset(&server_addr, 0, sizeof(server_addr));
@@ -369,6 +377,7 @@ void* listen_for_rst(void *arg) {
         num_rst_received++;
     }
 
+    // Print compression message
     if (fabs(high_entropy_diff - low_entropy_diff) > 100) {
         printf("Compression detected\n");
     } else {

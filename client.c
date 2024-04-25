@@ -54,7 +54,6 @@ int send_config(cJSON *json_root, int sock) {
     }
 
     cJSON_Delete(json_root);
-    printf("File sent successfully.\n");
     return sock;
 }
 
@@ -72,6 +71,7 @@ ConfigData* tcp_pre_probe(char* file_path) {
         perror("Error allocating config data");
         exit(EXIT_FAILURE);
     }
+
     cJSON* json_root = parse_config(file);
     if (json_root == NULL) {
         perror("Unnable to parse config file");
@@ -145,6 +145,7 @@ void send_udp_packets(ConfigData* config_data) {
         exit(EXIT_FAILURE);
     }
 
+    // Bind socket
     if (bind(sock, (struct sockaddr *)&source_addr, sizeof(source_addr)) < 0) {
         perror("Error binding udp socket");
         free(config_data);
@@ -177,7 +178,6 @@ void send_udp_packets(ConfigData* config_data) {
             exit(EXIT_FAILURE);
         }
     }
-    printf("Low entropy packets sent\n");
 
     sleep(config_data->inter_measurement_time);
 
@@ -197,12 +197,14 @@ void send_udp_packets(ConfigData* config_data) {
             exit(EXIT_FAILURE);
         }
     }
-    printf("High entropy packets sent\n");
 
     close(sock);
 }
 
+// Connects to server via TCP
+// Reads message and outputs if compression was detected
 void receive_compression_message(ConfigData *config_data) {
+    // Connect to server
     int sock = connect_to_server(config_data, 0);
     if (sock < 0) {
         perror("Post probe failed");
@@ -210,6 +212,7 @@ void receive_compression_message(ConfigData *config_data) {
         exit(EXIT_FAILURE);
     }
 
+    // Receive compression message
     int has_compression;
     ssize_t bytes = recv(sock, &has_compression, sizeof(has_compression), 0);
     if (bytes < 0) {
@@ -219,6 +222,7 @@ void receive_compression_message(ConfigData *config_data) {
         exit(EXIT_FAILURE);
     }
 
+    // Output compression message
     if (has_compression == 0) {
 	    printf("No compression detected\n");
     } else {
@@ -241,9 +245,10 @@ int main(int argc, char *argv[]) {
 
     // Send first packet trains
     send_udp_packets(config_data);
-    printf("Packets sent successfully\n");
     
-    sleep(10);
+    sleep(8);
+
+    // Print compression message
     receive_compression_message(config_data);
     
     free(config_data);
