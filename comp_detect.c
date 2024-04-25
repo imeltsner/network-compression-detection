@@ -175,7 +175,7 @@ void get_random_bytes(char buffer[], ConfigData* config_data) {
 }
 
 // Create a udp socket and sends two packet trains
-void send_udp_packets(ConfigData* config_data) {
+void send_packets(ConfigData* config_data) {
     // Create a UDP socket
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0) {
@@ -223,6 +223,9 @@ void send_udp_packets(ConfigData* config_data) {
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = inet_addr(config_data->server_ip_addr);
     server_addr.sin_port = htons(config_data->udp_destination_port);
+    
+    // Send head SYN packet
+    send_syn_packet(config_data, config_data->tcp_head_syn);
 
     // Configure payload
     char payload[config_data->udp_payload_size];
@@ -244,12 +247,19 @@ void send_udp_packets(ConfigData* config_data) {
     }
     printf("Low entropy packets sent\n");
 
+    // Send tail SYN
+    send_syn_packet(config_data, config_data->tcp_tail_syn);
+
     sleep(config_data->inter_measurement_time);
 
-    // Send high entropy packets
+    // Get random bytes
     memset(payload, 0, sizeof(payload));
     get_random_bytes(payload, config_data);
 
+    // Send head SYN
+    send_syn_packet(config_data, config_data->tcp_head_syn);
+
+    // Send high entropy packets
     for (int i = 0; i < config_data->num_udp_packets; i++) {
         packet_id = i;
         payload[0] = (packet_id >> 8) & 0xFF;
@@ -263,6 +273,9 @@ void send_udp_packets(ConfigData* config_data) {
         }
     }
     printf("High entropy packets sent\n");
+    
+    // Send tail SYN
+    send_syn_packet(config_data, config_data->tcp_head_syn);
 
     close(sock);
 }
@@ -322,6 +335,7 @@ void* listen_for_rst(void *arg) {
     // Listen for RST packets
     struct timeval first_rst_time, second_rst_time, elapsed_rst_time;
     int num_rst_received = 0;
+    double low_entropy_diff, high_entropy_diff;
 
     while (1) {
         struct iphdr *ip_header;
@@ -338,26 +352,30 @@ void* listen_for_rst(void *arg) {
         tcp_header = (struct tcphdr *)(buffer + (ip_header->ihl * 4));
 
         if (tcp_header->rst) {
-            if (num_rst_received == 0) {
+            if (num_rst_received == 0 || num_rst_received == 2) {
                 gettimeofday(&first_rst_time, NULL);
-                num_rst_received++;
             } else if (num_rst_received == 1) {
                 gettimeofday(&second_rst_time, NULL);
                 timeval_subtract(&elapsed_rst_time, &first_rst_time, &second_rst_time);
-                double diff_milliseconds = (elapsed_rst_time.tv_sec + 1e-6 * elapsed_rst_time.tv_usec) * 1000;
-
-                if (fabs(diff_milliseconds) > 100) {
-                    printf("Compression detected\n");
-                } else {
-                    printf("No compression detected");
-                }
-
-                close(sock_fd);
+                low_entropy_diff = (elapsed_rst_time.tv_sec + 1e-6 * elapsed_rst_time.tv_usec) * 1000;
+            } else if (num_rst_received == 3) {
+                gettimeofday(&second_rst_time, NULL);
+                timeval_subtract(&elapsed_rst_time, &first_rst_time, &second_rst_time);
+                high_entropy_diff = (elapsed_rst_time.tv_sec + 1e-6 * elapsed_rst_time.tv_usec) * 1000;
                 break;
             }
         }
+
+        num_rst_received++;
     }
 
+    if (fabs(high_entropy_diff - low_entropy_diff) > 100) {
+        printf("No compression detected\n");
+    } else {
+      printf("Compression detected\n");
+    }
+
+    close(sock_fd);
     pthread_exit(NULL);
 }
 
@@ -380,9 +398,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Send packets
-    send_syn_packet(config_data, config_data->tcp_head_syn);
-    send_udp_packets(config_data);
-    send_syn_packet(config_data, config_data->tcp_tail_syn);
+    send_packets(config_data);
 
     // Join listener thread
     if (pthread_join(listenThread, NULL) != 0) {
