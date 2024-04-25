@@ -275,7 +275,6 @@ int main(int argc, char *argv[]) {
 
     // Get packet trains
     double time_difference = receive_packet_train(config_data);
-    printf("Time difference between packet trains: %f milliseconds\n", time_difference);
 
     // Create post probe tcp socket
     send_compression_message(config_data, time_difference);
