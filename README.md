@@ -12,12 +12,12 @@ whether or not compression was detected. If the difference in arrival time betwe
 "Compression Detected". If the difference was less than 100 milliseconds, the client will report "No compression detected".
 
 ### Usage
-This application has two main files, server.c and client.c. They are meant to be run on different virtual machines. 
+This application has two main files, server.c and client.c. They are meant to be run in two different terminals or virtual machines. 
 
 1. Fill out the config.json file with the values you would like to use
-2. In the first VM, compile the server.c program
+2. In the first terminal, compile the server.c program
 ```
-gcc server.c config.c cJSON.c -o server
+gcc -o server server.c config.c cJSON.c 
 ```
 3. Start the server application
 ```
@@ -25,12 +25,12 @@ gcc server.c config.c cJSON.c -o server
 ```
 4. In the second VM, compile the client.c program
 ```
-gcc client.c config.c cJSON.c -o client
+gcc -o client client.c config.c cJSON.c
 ```
 5. Start the client application
 ```
 ./client <path to config file>
 ```
 
-The will take some time to run, depending on how long you set the inter-measurement time. Once it completes,
-you can observe the compression message in the VM the client is running on. 
+The application will take some time to run, depending on how long you set the inter-measurement time. Once it completes,
+you can observe the compression message in the terminal the client is running on. 
