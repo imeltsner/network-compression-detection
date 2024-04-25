@@ -275,7 +275,7 @@ void send_packets(ConfigData* config_data) {
     printf("High entropy packets sent\n");
     
     // Send tail SYN
-    send_syn_packet(config_data, config_data->tcp_head_syn);
+    send_syn_packet(config_data, config_data->tcp_tail_syn);
 
     close(sock);
 }
