@@ -400,8 +400,8 @@ int main(int argc, char *argv[]) {
     ConfigData* config_data = get_config_data(file_path);
 
     // Create listener thread
-    pthread_t listenThread;
-    if (pthread_create(&listenThread, NULL, listen_for_rst, (void*)&config_data) != 0) {
+    pthread_t listen_thread;
+    if (pthread_create(&listen_thread, NULL, listen_for_rst, (void*)&config_data) != 0) {
         perror("Error creating listen thread");
         exit(EXIT_FAILURE);
     }
@@ -410,7 +410,7 @@ int main(int argc, char *argv[]) {
     send_packets(config_data);
 
     // Join listener thread
-    if (pthread_join(listenThread, NULL) != 0) {
+    if (pthread_join(listen_thread, NULL) != 0) {
         perror("Error joining listen thread");
         exit(EXIT_FAILURE);
     }
