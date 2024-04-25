@@ -311,7 +311,7 @@ void* listen_for_rst(void *arg) {
     socklen_t server_size = sizeof(server_addr);
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = config_data->server_ip_addr;
+    server_addr.sin_addr.s_addr = INADDR_ANY;
 
     // Bind the socket
     if (bind(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
@@ -328,7 +328,7 @@ void* listen_for_rst(void *arg) {
         struct tcphdr *tcp_header;
         char buffer[65536];
 
-        ssize_t bytes_received = recvfrom(sock_fd, buffer, sizeof(buffer), 0, (struct sockaddr*) &server_addr, server_size);
+        ssize_t bytes_received = recvfrom(sock_fd, buffer, sizeof(buffer), 0, (struct sockaddr*) &server_addr, &server_size);
         if (bytes_received < 0) {
             perror("Error receiving RST packets\n");
             exit(EXIT_FAILURE);
