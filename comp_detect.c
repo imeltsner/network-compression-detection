@@ -117,7 +117,7 @@ void send_syn_packet(ConfigData *config_data, int destination_port) {
     // Send packet
     dest.sin_family = AF_INET;
     dest.sin_addr.s_addr = ip->daddr;
-    int bytes_sent = sendto(sockfd, packet, ntohs(ip->tot_len), 0, (struct sockaddr *)&dest, sizeof(dest));
+    ssize_t bytes_sent = sendto(sockfd, packet, ntohs(ip->tot_len), 0, (struct sockaddr *)&dest, sizeof(dest));
     if (bytes_sent < 0) {
         perror("Error sending SYN packet\n");
         close(sockfd);
@@ -267,6 +267,100 @@ void send_udp_packets(ConfigData* config_data) {
     close(sock);
 }
 
+// https://www.gnu.org/software/libc/manual/html_node/Calculating-Elapsed-Time.html
+// Gets difference between two timevals
+int timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y) {
+    /* Perform the carry for the later subtraction by updating y. */
+    if (x->tv_usec < y->tv_usec) {
+        int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+        y->tv_usec -= 1000000 * nsec;
+        y->tv_sec += nsec;
+    }
+    if (x->tv_usec - y->tv_usec > 1000000) {
+        int nsec = (x->tv_usec - y->tv_usec) / 1000000;
+        y->tv_usec += 1000000 * nsec;
+        y->tv_sec -= nsec;
+    }
+
+    // Compute the time remaining to wait. tv_usec is certainly positive.
+    result->tv_sec = x->tv_sec - y->tv_sec;
+    result->tv_usec = x->tv_usec - y->tv_usec;
+
+    /* Return 1 if result is negative. */
+    return x->tv_sec < y->tv_sec;
+}
+
+void* listen_for_rst(void *arg) {
+    ConfigData *config_data = (ConfigData *) arg;
+
+    // Create socket
+    int sock_fd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+    if (sock_fd < 0) {
+        perror("Error creating listen socket\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Set socket to receive all TCP packets
+    int val = 1;
+    if (setsockopt(sock_fd, IPPROTO_IP, IP_HDRINCL, &val, sizeof(val)) < 0) {
+        perror("Error setting listen socket options\n");
+        exit(EXIT_FAILURE);
+    }
+
+    struct sockaddr_in server_addr;
+    socklen_t server_size = sizeof(server_addr);
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = config_data->server_ip_addr;
+
+    // Bind the socket
+    if (bind(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+        perror("Error binding listen socket\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Listen for RST packets
+    struct timeval first_rst_time, second_rst_time, elapsed_rst_time;
+    int num_rst_received = 0;
+
+    while (1) {
+        struct iphdr *ip_header;
+        struct tcphdr *tcp_header;
+        char buffer[65536];
+
+        ssize_t bytes_received = recvfrom(sock_fd, buffer, sizeof(buffer), 0, (struct sockaddr*) &server_addr, server_size);
+        if (bytes_received < 0) {
+            perror("Error receiving RST packets\n");
+            exit(EXIT_FAILURE);
+        }
+
+        ip_header = (struct iphdr *)buffer;
+        tcp_header = (struct tcphdr *)(buffer + (ip_header->ihl * 4));
+
+        if (tcp_header->rst) {
+            if (num_rst_received == 0) {
+                gettimeofday(&first_rst_time, NULL);
+                num_rst_received++;
+            } else if (num_rst_received == 1) {
+                gettimeofday(&second_rst_time, NULL);
+                timeval_subtract(&elapsed_rst_time, &first_rst_time, &second_rst_time);
+                double diff_milliseconds = (elapsed_rst_time.tv_sec + 1e-6 * elapsed_rst_time.tv_usec) * 1000;
+
+                if (fabs(diff_milliseconds) > 100) {
+                    printf("Compression detected\n");
+                } else {
+                    printf("No compression detected");
+                }
+
+                close(sock_fd);
+                break;
+            }
+        }
+    }
+
+    pthread_exit(NULL);
+}
+
 int main(int argc, char *argv[]) {
     // Arg error checking
     if (argc != 2) {
@@ -278,10 +372,23 @@ int main(int argc, char *argv[]) {
     char *file_path = argv[1];
     ConfigData* config_data = get_config_data(file_path);
 
+    // Create listener thread
+    pthread_t listenThread;
+    if (pthread_create(&listenThread, NULL, listen_for_rst, (void*)&config_data) != 0) {
+        perror("Error creating listen thread");
+        exit(EXIT_FAILURE);
+    }
+
     // Send packets
     send_syn_packet(config_data, config_data->tcp_head_syn);
     send_udp_packets(config_data);
     send_syn_packet(config_data, config_data->tcp_tail_syn);
+
+    // Join listener thread
+    if (pthread_join(listenThread, NULL) != 0) {
+        perror("Error joining listen thread");
+        exit(EXIT_FAILURE);
+    }
 
     free(config_data);
     return 0;
