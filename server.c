@@ -240,10 +240,10 @@ void send_compression_message(ConfigData *config_data, double time_difference) {
     int compression_detected = fabs(time_difference) > 100;
     ssize_t bytes = send(client_sock, &compression_detected, sizeof(int), 0);
     if (bytes < 0) {
-	perror("Error sending compression message");
-	close(tcp_post_sock);
-	close(client_sock);
-	exit(EXIT_FAILURE);
+        perror("Error sending compression message");
+        close(tcp_post_sock);
+        close(client_sock);
+        exit(EXIT_FAILURE);
     }
 
     close(tcp_post_sock);
