@@ -14,7 +14,7 @@ whether or not compression was detected. If the difference in arrival time betwe
 ### Usage
 This application has two main files, server.c and client.c. They are meant to be run in two different terminals or virtual machines. 
 
-1. Fill out the config.json file with the values you would like to use
+1. Fill out the config.json file with the values you would like to use (some fields are not used by this application)
 2. In the first terminal, compile the server.c program
 ```
 gcc -o server server.c config.c cJSON.c 
@@ -34,3 +34,27 @@ gcc -o client client.c config.c cJSON.c
 
 The application will take some time to run, depending on how long you set the inter-measurement time. Once it completes,
 you can observe the compression message in the terminal the client is running on. 
+
+## Standalone Application
+### Overview
+This application uses raw sockets to detect network compression links. The application parses a config file, then sends two sets of packets.
+The first set is a SYN packet, followed by a UDP packet train containing low entropy data, followed by a second SYN packet. This process is 
+repeated with high entropy data in the UDP packet. Each SYN packet is sent to an uncommon port where no application is expected to be listening.
+As a result, RST packets will be sent in response to the SYN packets, because the ports are unreachable. The application listens for RST packets, 
+and calculates the time difference between the first and second RST packet received for each packet train. It then calculates the difference between 
+each packet train. If the difference is greater than 100 milliseconds, the application prints "Compression detected". If it is less than 100 milliseconds, 
+it prints "No compression detected".
+
+### Usage
+1. Fill out the config.json file with the values you would like to use (some fields are not used by this application)
+2. Compile the comp_detect.c program
+```
+gcc -o comp_detect comp_detect.c config.c cJSON.c
+```
+3. Start the application
+```
+./comp_detect <path to config file>
+```
+
+The application will take some time to run, depending on how long you set the inter-measurement time. Once it completes,
+you can observe the compression message in the terminal.
