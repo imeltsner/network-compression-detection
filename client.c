@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
     // Send first packet trains
     send_udp_packets(config_data);
     
-    sleep(8);
+    sleep(1);
 
     // Print compression message
     receive_compression_message(config_data);
