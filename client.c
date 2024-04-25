@@ -213,16 +213,16 @@ void receive_compression_message(ConfigData *config_data) {
     int has_compression;
     ssize_t bytes = recv(sock, &has_compression, sizeof(has_compression), 0);
     if (bytes < 0) {
-	perror("Error receiving compression message");
-	free(config_data);
-	close(sock);
+	    perror("Error receiving compression message");
+	    free(config_data);
+	    close(sock);
         exit(EXIT_FAILURE);
     }
 
     if (has_compression == 0) {
-	printf("No compression detected\n");
+	    printf("No compression detected\n");
     } else {
-	printf("Compression detected\n");
+	    printf("Compression detected\n");
     }
 
     close(sock);
