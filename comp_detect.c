@@ -370,9 +370,9 @@ void* listen_for_rst(void *arg) {
     }
 
     if (fabs(high_entropy_diff - low_entropy_diff) > 100) {
-        printf("No compression detected\n");
+        printf("Compression detected\n");
     } else {
-      printf("Compression detected\n");
+        printf("No compression detected\n");
     }
 
     close(sock_fd);
