@@ -46,6 +46,7 @@ each packet train. If the difference is greater than 100 milliseconds, the appli
 it prints "No compression detected".
 
 ### Usage
+This application uses raw sockets, so it requires sudo privledges to run
 1. Fill out the config.json file with the values you would like to use (some fields are not used by this application)
 2. Compile the comp_detect.c program
 ```
@@ -53,7 +54,7 @@ gcc -o comp_detect comp_detect.c config.c cJSON.c
 ```
 3. Start the application
 ```
-./comp_detect <path to config file>
+sudo ./comp_detect <path to config file>
 ```
 
 The application will take some time to run, depending on how long you set the inter-measurement time. Once it completes,
